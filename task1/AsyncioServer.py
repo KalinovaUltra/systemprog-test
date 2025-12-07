@@ -9,6 +9,7 @@ import aiohttp
 import asyncio
 from bs4 import BeautifulSoup
 import json
+import re
 
 # асинхронный сервер
 
@@ -25,17 +26,28 @@ async def fetch_and_parse(session, url):  # асинхронная функци�
                 slider.decompose()
 
             # Теперь все оставшиеся .set-card - это товары нужной категории
+            total_price = 0
             for card in soup.select('.set-card'):
                 product_link = card.select_one('a.di_b.c_b')
                 if product_link:
                     text = product_link.text.strip()
                     if text and text not in items:
                         items.append(text)
+                #поиск цены
+                price_text = card.get_text()
+                prices = re.findall(r'(\d+)\s*₽', price_text)
+                if prices:
+                    try:
 
+                        price = int(prices[0])
+                        total_price += price
+                    except:
+                        pass
             return {
                 'url': url,
                 'items': items,
-                'count': len(items)
+                'count': len(items),
+                'total_price': total_price
             }
     except Exception as e:
         return {'url': url, 'error': str(e), 'items': []}
@@ -53,7 +65,8 @@ async def handle_request(request):
             for item in result.get('items', []):
                 f.write(f"- {item}\n")
             f.write(f"Всего товаров: {result.get('count', 0)}\n")
-            f.write("-" * 50 + "\n")
+            f.write(f"Суммарная стоимость: {result.get('total_price', 0)} ₽\n")
+            f.write("-" * 20 + "\n")
 
         return web.json_response(result)
 

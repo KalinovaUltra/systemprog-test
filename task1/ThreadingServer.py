@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import threading
 from queue import Queue
 import time
+import re
 
 # многопоточный сервер
 
@@ -21,6 +22,7 @@ def parse_page(url):  # функция для парсинга
         for slider in soup.find_all(class_='slider-block'):
             slider.decompose()
 
+        total_price = 0
         # товары нужной категории
         for card in soup.select('.set-card'):
             product_link = card.select_one('a.di_b.c_b')
@@ -28,11 +30,20 @@ def parse_page(url):  # функция для парсинга
                 text = product_link.text.strip()
                 if text and text not in items:
                     items.append(text)
-
+            # поиск цены
+            price_text = card.get_text()
+            prices = re.findall(r'(\d+)\s*₽', price_text)
+            if prices:
+                try:
+                    price = int(prices[0])
+                    total_price += price
+                except:
+                    pass
         return {
             'url': url,
             'items': items,
-            'count': len(items)
+            'count': len(items),
+            'total_price': total_price
         }
     except Exception as e:
         return {'url': url, 'error': str(e), 'items': []}
@@ -48,7 +59,8 @@ def handle_request():
         for item in result.get('items', []):
             f.write(f"- {item}\n")
         f.write(f"Всего товаров: {result.get('count', 0)}\n")
-        f.write("-" * 50 + "\n")
+        f.write(f"Суммарная стоимость: {result.get('total_price', 0)} ₽\n")
+        f.write("-" * 20 + "\n")
 
     return jsonify(result)
 
